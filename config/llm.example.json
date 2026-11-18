@@ -1,0 +1,19 @@
+{
+  "base_url": "https://REPLACE_WITH_PROVIDER_HOST/v1",
+  "model": "REPLACE_WITH_VERIFIED_FIXED_MODEL_VERSION",
+  "accepted_response_models": [],
+  "api_key_env": "SUPERAGENT_API_KEY",
+  "model_family": "deepseek",
+  "model_release_date": "REPLACE_WITH_OFFICIAL_RELEASE_DATE",
+  "pricing_as_of": "2026-10-21",
+  "pricing_basis": "official_standard",
+  "input_rmb_per_million": null,
+  "output_rmb_per_million": null,
+  "price_source": "https://REPLACE_WITH_OFFICIAL_STANDARD_PRICE_SOURCE",
+  "model_source": "https://REPLACE_WITH_OFFICIAL_MODEL_RELEASE_SOURCE",
+  "verified": false,
+  "budget_rmb": 20.0,
+  "max_input_tokens": 16000,
+  "max_output_tokens": 1000,
+  "timeout_seconds": 60
+}

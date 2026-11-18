@@ -1,0 +1,12 @@
+{
+  "name": "headlines_development",
+  "data_type": "paired_text",
+  "data_format": "csv",
+  "train_path": "../../final_project_tasks/final_project_tasks/headlines_ctr_clean/train.csv",
+  "validation_path": "../../final_project_tasks/final_project_tasks/headlines_ctr_clean/val.csv",
+  "target_column": "label_pairwise",
+  "text_columns": ["headline_A", "headline_B"],
+  "metric": "accuracy",
+  "seed": 42,
+  "max_experiments": 8
+}
