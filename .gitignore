@@ -7,6 +7,7 @@ __pycache__/
 config/llm.local.json
 config/*.local.json
 runs/
+archives/
 examples/demo/
 examples/code_demo/
 data/

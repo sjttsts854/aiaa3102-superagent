@@ -1,0 +1,5 @@
+# Release fingerprints cover exact bytes, including existing line endings.
+# Preserve them across Windows/Linux checkouts instead of implicit conversion.
+/superagent/*.py -text
+/requirements.txt -text
+/config/*.json -text

@@ -20,6 +20,7 @@ _TRANSPORT_ERRORS = {
     "ReadError", "WriteError", "CloseError", "LocalProtocolError", "RemoteProtocolError",
     "ProxyError", "UnsupportedProtocol", "DecodingError", "TooManyRedirects",
     "HTTPStatusError", "ValueError", "JSONDecodeError",
+    "RequestDeadlineExceeded", "RequestWorkerError",
 }
 _PATH_KEYS = {"train": "train_path", "train_labels": "train_labels_path",
               "validation": "validation_path", "validation_labels": "validation_labels_path",

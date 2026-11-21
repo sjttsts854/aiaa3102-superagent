@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "updated_on": "2026-11-21",
+  "purpose": "Public summary of recorded results, with historical results kept separate from the current release.",
+  "score_convention": "Accuracy as a fraction between 0 and 1; display percentages by multiplying by 100.",
+  "evidence_scope": "Repository-relative paths identify local artifacts. The ignored runs directory, model binaries, raw logs and predictions are not included in the public source repository.",
+  "course_cost_compliance_asserted": false,
+  "current_release": {
+    "version": "v0.3.0",
+    "results_status": "pending_not_run",
+    "source_sha256": null,
+    "source_note": "A release label is not an experiment fingerprint. Populate this from a verified v0.3.0 run manifest when results are recorded.",
+    "results": [
+      {
+        "task": "coupon",
+        "status": "pending_not_run",
+        "run_id": null,
+        "model": null,
+        "metric": "accuracy",
+        "split": null,
+        "correct": null,
+        "rows": null,
+        "score": null,
+        "evidence_paths": []
+      },
+      {
+        "task": "headlines",
+        "status": "pending_not_run",
+        "run_id": null,
+        "model": null,
+        "metric": "accuracy",
+        "split": null,
+        "correct": null,
+        "rows": null,
+        "score": null,
+        "evidence_paths": []
+      },
+      {
+        "task": "unseen",
+        "status": "pending_not_run",
+        "run_id": null,
+        "model": null,
+        "metric": null,
+        "split": null,
+        "correct": null,
+        "rows": null,
+        "score": null,
+        "evidence_paths": []
+      }
+    ]
+  },
+  "historical_results": [
+    {
+      "result_id": "v1_coupon_frozen_test",
+      "stage": "historical_v1_frozen_final_evaluation",
+      "task": "coupon",
+      "run_id": "coupon_round3/planner_02",
+      "planner_mode": "llm",
+      "planner_model": "DeepSeek-V4-Pro",
+      "model": "hist_gradient_boosting",
+      "model_artifact": "runs/final_release_round3/models/coupon/model.joblib",
+      "model_sha256": "c14320ed98eabc694a02885c61a369d51b48d732ec0f296398401604525f8f17",
+      "metric": "accuracy",
+      "split": "official_test",
+      "correct": 1952,
+      "rows": 2537,
+      "score": 0.7694126921560899,
+      "correct_count_basis": "recorded_in_existing_evaluation_verification",
+      "source_sha256": "0116009cd25c4c0d3cbe109b071145bda946f811f5ee387e3d8f31a3e61dc06b",
+      "is_current_release_result": false,
+      "validation_result": {
+        "metric": "accuracy",
+        "split": "official_validation",
+        "correct": 1542,
+        "rows": 2030,
+        "score": 0.7596059113300493,
+        "correct_count_basis": "derived_from_recorded_accuracy_and_split_manifest_row_count"
+      },
+      "evidence_paths": [
+        "runs/final_release_round3/results.json",
+        "runs/final_release_round3/freeze.json",
+        "runs/final_release_round3/verification.json",
+        "runs/final_release_round3/evaluation_coupon/summary.json",
+        "runs/coupon_round3/planner_02/summary.json",
+        "runs/coupon_round3/planner_02/split_manifest.json",
+        "runs/coupon_round3/planner_02/llm_calls.jsonl"
+      ],
+      "attribution_note": "The model was frozen before this historical test evaluation. This test score belongs to the recorded V1 source and model, not v0.3.0."
+    },
+    {
+      "result_id": "v1_headlines_frozen_test",
+      "stage": "historical_v1_frozen_final_evaluation",
+      "task": "headlines",
+      "run_id": "headlines_round3/planner_01",
+      "planner_mode": "llm",
+      "planner_model": "DeepSeek-V4.1-Flash",
+      "model": "paired_text_hybrid",
+      "model_artifact": "runs/final_release_round3/models/headlines/model.joblib",
+      "model_sha256": "4d33877669d992115a470fe39ab6d18a17ea1a774b176ef9b38663c0513ee351",
+      "metric": "accuracy",
+      "split": "official_test",
+      "correct": 2191,
+      "rows": 3232,
+      "score": 0.6779084158415841,
+      "correct_count_basis": "recorded_in_existing_evaluation_verification",
+      "source_sha256": "0116009cd25c4c0d3cbe109b071145bda946f811f5ee387e3d8f31a3e61dc06b",
+      "is_current_release_result": false,
+      "validation_result": {
+        "metric": "accuracy",
+        "split": "official_validation",
+        "correct": 649,
+        "rows": 940,
+        "score": 0.6904255319148936,
+        "correct_count_basis": "derived_from_recorded_accuracy_and_split_manifest_row_count"
+      },
+      "evidence_paths": [
+        "runs/final_release_round3/results.json",
+        "runs/final_release_round3/freeze.json",
+        "runs/final_release_round3/verification.json",
+        "runs/final_release_round3/evaluation_headlines/summary.json",
+        "runs/headlines_round3/planner_01/summary.json",
+        "runs/headlines_round3/planner_01/split_manifest.json",
+        "runs/headlines_round3/planner_01/llm_calls.jsonl"
+      ],
+      "attribution_note": "The model was frozen before this historical test evaluation. This test score belongs to the recorded V1 source and model, not v0.3.0."
+    },
+    {
+      "result_id": "v2_coupon_validation_20261121",
+      "stage": "historical_v2_development_validation",
+      "task": "coupon",
+      "run_id": "v2_released_20261121_001/coupon/planner_01",
+      "planner_mode": "llm-code",
+      "planner_model": "DeepSeek-V4.1-Flash",
+      "model": "dense_cat_hgb_et_blend",
+      "model_artifact": "runs/v2_released_20261121_001/coupon/planner_01/model.joblib",
+      "model_sha256": "8f2b039a232c711267ccd006f0e1113631cfc3b407fc89cf718525896da7f208",
+      "metric": "accuracy",
+      "split": "official_validation",
+      "correct": 1544,
+      "rows": 2030,
+      "score": 0.7605911330049261,
+      "correct_count_basis": "derived_from_recorded_accuracy_and_reload_verification_row_count",
+      "source_sha256": "169b5596dd1278582bd83527b0880e63171ec365a93a5588a3808df79a137aa0",
+      "is_current_release_result": false,
+      "official_test_evaluated": false,
+      "evidence_paths": [
+        "runs/v2_released_20261121_001/results_summary.json",
+        "runs/v2_released_20261121_001/coupon_reload_verification.json",
+        "runs/v2_released_20261121_001/coupon/planner_01/summary.json",
+        "runs/v2_released_20261121_001/coupon/planner_01/manifest.json",
+        "runs/v2_released_20261121_001/coupon/planner_01/llm_calls.jsonl"
+      ],
+      "attribution_note": "Historical V2 validation result only. It is neither a test score nor a result from the final v0.3.0 source."
+    },
+    {
+      "result_id": "v2_headlines_qwen_validation_20261121",
+      "stage": "historical_v2_development_validation",
+      "task": "headlines",
+      "run_id": "v2_headlines_20261121_004/campaign/planner_01",
+      "planner_mode": "llm-code",
+      "planner_model": "Qwen3.8-27B",
+      "model": "paired_char_tfidf_reg02",
+      "model_artifact": "runs/v2_headlines_20261121_004/campaign/planner_01/model.joblib",
+      "model_sha256": "c7786a5d7afaf9c9c20a13cb472f8f7f2429cd59d7784bac1adbb8c9179805f7",
+      "metric": "accuracy",
+      "split": "official_validation",
+      "correct": 656,
+      "rows": 940,
+      "score": 0.6978723404255319,
+      "correct_count_basis": "recorded_in_existing_reload_verification",
+      "source_sha256": "169b5596dd1278582bd83527b0880e63171ec365a93a5588a3808df79a137aa0",
+      "is_current_release_result": false,
+      "official_test_evaluated": false,
+      "evidence_paths": [
+        "runs/v2_headlines_20261121_004/results_summary.json",
+        "runs/v2_headlines_20261121_004/reload_verification.json",
+        "runs/v2_headlines_20261121_004/campaign/planner_01/summary.json",
+        "runs/v2_headlines_20261121_004/campaign/planner_01/manifest.json",
+        "runs/v2_headlines_20261121_004/campaign/planner_01/llm_calls.jsonl"
+      ],
+      "attribution_note": "Historical V2 validation result only. The comparison with the Flash three-tier experiment is not controlled."
+    },
+    {
+      "result_id": "three_tier_headlines_flash_validation_20261121",
+      "stage": "historical_three_tier_experiment",
+      "task": "headlines",
+      "run_id": "three_tier_20261121_001/campaign/planner_01",
+      "planner_mode": "llm-code",
+      "planner_model": "DeepSeek-V4.1-Flash",
+      "model": "paired_shared_tfidf_similarity_logistic",
+      "model_artifact": "runs/three_tier_20261121_001/campaign/planner_01/model.joblib",
+      "model_sha256": "e5180a07f210deb6f46e3c5f2ca4745420f78aad1b54dba5d06ae768ca2cbfaa",
+      "metric": "accuracy",
+      "split": "official_validation",
+      "correct": 653,
+      "rows": 940,
+      "score": 0.6946808510638298,
+      "correct_count_basis": "derived_from_recorded_accuracy_and_reload_verification_row_count",
+      "source_sha256": "3cdd3a1c06e9c70ce0d6c9beb459c46ba9c7f187b67b0317099985b1bca91c43",
+      "is_current_release_result": false,
+      "official_test_evaluated": false,
+      "evidence_paths": [
+        "runs/three_tier_20261121_001/results_summary.json",
+        "runs/three_tier_20261121_001/reload_verification.json",
+        "runs/three_tier_20261121_001/campaign/planner_01/summary.json",
+        "runs/three_tier_20261121_001/campaign/planner_01/manifest.json",
+        "runs/three_tier_20261121_001/campaign/planner_01/llm_calls.jsonl"
+      ],
+      "request_summary": {
+        "requests": 9,
+        "timeouts": 0,
+        "truncations": 0,
+        "observed_tiers": ["default"],
+        "unobserved_tiers": ["long_code", "difficult"]
+      },
+      "attribution_note": "This result belongs to the isolated experiment source. Promoting its policy into v0.3.0 does not transfer this score to v0.3.0."
+    }
+  ],
+  "comparisons": [
+    {
+      "result_ids": [
+        "v2_headlines_qwen_validation_20261121",
+        "three_tier_headlines_flash_validation_20261121"
+      ],
+      "controlled_comparison": false,
+      "reason": "Planner model, source and request settings differ. These observations cannot isolate the effect of the three-tier policy or thinking mode."
+    }
+  ],
+  "attribution_rules": [
+    "Keep release label, source fingerprint, run, selected model fingerprint, evaluation split and metric together.",
+    "Historical rows must never populate pending v0.3.0 result fields.",
+    "A validation score must not be presented as a test score or a class ranking.",
+    "Previously observed test results must not guide further tuning or selection.",
+    "This score registry is not a billing ledger and does not establish official course pricing or complete historical usage."
+  ]
+}

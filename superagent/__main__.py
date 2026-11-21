@@ -4,10 +4,12 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from . import __version__
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="AIAA3102 autonomous classification experiment runner")
+    parser.add_argument("--version", action="version", version=f"SuperAgent {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
     demo = commands.add_parser("make-demo", help="Generate clearly labeled synthetic development data")
     demo.add_argument("--output", type=Path, default=Path("examples/demo"))

@@ -18,8 +18,11 @@
   "verified": true,
   "budget_rmb": 20.0,
   "max_input_tokens": 16000,
-  "max_output_tokens": 8192,
-  "timeout_seconds": 360,
+  "max_output_tokens": 16384,
+  "timeout_seconds": 600,
   "response_format": "json_object",
-  "reasoning_effort": "low"
+  "reasoning_effort": null,
+  "enable_thinking": false,
+  "request_deadline_seconds": 240,
+  "request_policy": "three_tier"
 }

@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.utils.multiclass import type_of_target
+from . import __version__
 
 from .data import TaskSpec, image_source_hashes, image_source_paths, load_prediction_data
 from .utils import file_hash, now, object_hash, write_json
@@ -154,6 +155,9 @@ def evaluate_model(
     }
     manifest = {
         "created_at": now(),
+        "training_project_version": bundle.get("project_version"),
+        "training_run_id": bundle.get("run_id"),
+        "evaluation_project_version": __version__,
         "model": str(model_path), "model_sha256": model_sha256,
         "input": str(input_path), "labels": str(labels_path) if labels_path else None,
         "data_sha256": data_hashes,
@@ -208,6 +212,9 @@ def evaluate_model(
             frame.to_csv(probability_path, index=False)
         result = {
             "status": "completed", "purpose": "final_evaluation",
+            "training_project_version": bundle.get("project_version"),
+            "training_run_id": bundle.get("run_id"),
+            "evaluation_project_version": __version__,
             "created_at": now(), "metric": "accuracy",
             "test_accuracy": float(accuracy_score(labels, prediction)),
             "rows": len(prediction), "classes": classes.tolist(),
