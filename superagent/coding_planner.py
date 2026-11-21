@@ -13,7 +13,8 @@ import re
 from typing import Any
 
 from .planner import LLMPlanner, _safe_plan_error
-from .usage import AgentPlannerError, InvalidPlanError
+from .usage import AccountingError, AgentPlannerError, InvalidPlanError, TruncatedResponseError
+from .request_policy import PolicyExhausted, ThreeTierPolicy
 
 
 MAX_SOURCE_BYTES = 10_000
@@ -201,10 +202,31 @@ def _messages(profile: dict, history: list[dict], catalog: dict, previous_error:
 class CodingPlanner(LLMPlanner):
     """Generate full candidate modules and repair failed code with charged calls."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.request_policy = ThreeTierPolicy() if self.config.request_policy == "three_tier" else None
+
+    def _policy_request(self, messages, history):
+        if self.request_policy is None:
+            return self._request_json(messages)
+        try:
+            tier = self.request_policy.choose(history)
+            try:
+                return self._request_tier(messages, tier,
+                                          on_reserved=lambda: self.request_policy.mark_sent(tier))
+            except TruncatedResponseError:
+                self.request_policy.record_length(tier)
+                raise
+            except AccountingError:
+                self.request_policy.record_transport_failure()
+                raise
+        except PolicyExhausted as exc:
+            raise AgentPlannerError(str(exc)) from exc
+
     def propose(self, profile: dict, history: list[dict], catalog: dict) -> dict:
         messages = _messages(profile, history, catalog, self._last_plan_error, self.config.max_input_tokens)
         try:
-            plan = validate_code_plan(self._request_json(messages))
+            plan = validate_code_plan(self._policy_request(messages, history))
             if plan["action"] == "experiment":
                 digest = source_digest(plan["candidate"]["source"])
                 prior = {source_digest(row["candidate"]["source"]) for row in history

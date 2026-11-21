@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import time
+import uuid
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -15,9 +16,10 @@ import joblib
 import pandas as pd
 
 from .data import load_data, load_prediction_data, load_task
+from . import __version__
 from .models import candidate_catalog
 from .planner import InvalidPlanError, LLMPlanner, OfflinePlanner
-from .usage import BudgetExhausted
+from .usage import BudgetExhausted, LLMConfig
 from .utils import append_jsonl, file_hash, now, object_hash, write_json
 
 
@@ -41,7 +43,8 @@ def snapshot_source(output: Path) -> dict:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             versions[package] = "not_installed"
-    return {"source_sha256": fingerprint, "files": hashes, "python": sys.version, "packages": versions}
+    return {"project_version": __version__, "run_id": uuid.uuid4().hex,
+            "source_sha256": fingerprint, "files": hashes, "python": sys.version, "packages": versions}
 
 
 def run_worker(task_path: Path, candidate: dict, folder: Path, timeout: float, refit: bool = False) -> dict:
@@ -95,6 +98,8 @@ def export_predictions(bundle: dict, input_path: Path, output_path: Path) -> dic
 def run(task_path: Path, output: Path, planner_mode: str = "offline", llm_config: Path | None = None, experiment_timeout: float = 120, refit_timeout: float = 240, budget_limit: float | None = None) -> dict:
     if not math.isfinite(experiment_timeout) or experiment_timeout <= 0 or not math.isfinite(refit_timeout) or refit_timeout <= 0:
         raise ValueError("Timeouts must be positive finite numbers")
+    if planner_mode == "llm" and llm_config is not None and LLMConfig.load(llm_config).request_policy is not None:
+        raise ValueError("The three-tier request policy requires --planner llm-code for experiments.")
     task = load_task(task_path)
     output = output.resolve()
     if output.exists() and any(output.iterdir()):
@@ -139,6 +144,10 @@ def run(task_path: Path, output: Path, planner_mode: str = "offline", llm_config
                 planner = LLMPlanner(llm_config, output, budget_limit=budget_limit)
         else:
             raise ValueError("planner must be offline, llm, or llm-code")
+        config_snapshot = output / "llm_config.snapshot.json"
+        if config_snapshot.is_file():
+            metadata["llm_config_sha256"] = file_hash(config_snapshot)
+            write_json(output / "manifest.json", metadata)
         data = load_data(task)
         profile = dict(data.profile)
         if planner_mode == "llm-code":
@@ -267,7 +276,9 @@ def run(task_path: Path, output: Path, planner_mode: str = "offline", llm_config
         else:
             model_path = output / "experiments" / f"trial_{best['trial']:03d}" / "pipeline.joblib"
             warnings.append("Final refit failed; saved the selected validation-stage model as a partial result")
-        bundle = {"pipeline": joblib.load(model_path), "task": task, "feature_columns": data.feature_columns, "selection": best, "source_sha256": metadata["source_sha256"]}
+        bundle = {"pipeline": joblib.load(model_path), "task": task, "feature_columns": data.feature_columns,
+                  "selection": best, "source_sha256": metadata["source_sha256"],
+                  "project_version": metadata["project_version"], "run_id": metadata["run_id"]}
         joblib.dump(bundle, output / "model.joblib")
         prediction = None
         if task.predict_path:
@@ -285,6 +296,8 @@ def run(task_path: Path, output: Path, planner_mode: str = "offline", llm_config
             status = "partial_accounting_limits_violated"
         summary = {
             "status": status,
+            "project_version": metadata["project_version"],
+            "run_id": metadata["run_id"],
             "run_mode": planner_mode,
             "development_demo": planner_mode == "offline",
             "llm_requests": usage.get("request_count", 0),
@@ -306,6 +319,8 @@ def run(task_path: Path, output: Path, planner_mode: str = "offline", llm_config
             "experiments_attempted": len(history),
             "refit_success": refit["status"] == "success",
             "model": str(output / "model.joblib"),
+            "model_sha256": file_hash(output / "model.joblib"),
+            "llm_config_sha256": metadata.get("llm_config_sha256"),
             "prediction": prediction,
             "usage": usage,
             "warnings": warnings,
@@ -319,5 +334,7 @@ def run(task_path: Path, output: Path, planner_mode: str = "offline", llm_config
         event("run_failed", error_type=type(exc).__name__, error=str(exc))
         if "planner" in locals():
             write_json(output / "usage_summary.json", planner.summary())
-        write_json(output / "summary.json", {"status": "failed", "run_mode": planner_mode, "error_type": type(exc).__name__, "error": str(exc), "partial_artifacts": True})
+        write_json(output / "summary.json", {"status": "failed", "project_version": __version__,
+                   "run_id": metadata.get("run_id") if "metadata" in locals() else None,
+                   "run_mode": planner_mode, "error_type": type(exc).__name__, "error": str(exc), "partial_artifacts": True})
         raise

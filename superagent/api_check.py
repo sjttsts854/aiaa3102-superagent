@@ -1,8 +1,10 @@
 """Separate local configuration validation from a small, metered network probe."""
 from pathlib import Path
+from dataclasses import asdict
 
 from .credentials import read_api_key
 from .planner import LLMPlanner
+from .request_policy import ThreeTierPolicy
 from .usage import LLMConfig
 from .utils import now, write_json
 
@@ -25,6 +27,9 @@ def check_config(path: Path) -> dict:
         "network_request_sent": False,
         "bypass_system_proxy": config.bypass_system_proxy,
         "connect_ip": config.connect_ip,
+        "request_policy": config.request_policy,
+        "output_reservation_ceiling": config.max_output_tokens,
+        "default_request": asdict(ThreeTierPolicy().choose([])) if config.request_policy == "three_tier" else None,
     }
 
 

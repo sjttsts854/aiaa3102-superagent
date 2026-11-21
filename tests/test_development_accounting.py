@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from superagent.campaign import _previous_costs
 from superagent.development_accounting import collect_development_history
 from superagent.usage import AccountingError, BudgetLedger, LLMConfig
 from superagent.utils import file_hash, write_json
@@ -143,6 +144,39 @@ def test_pending_or_unexplained_unknown_request_cannot_escape(tmp_path, mutation
 @pytest.mark.parametrize("failure", ["ReadTimeout", "ConnectError", "JSONDecodeError", "HTTPStatusError"])
 def test_recognized_transport_and_decoding_failures_keep_original_reserves(tmp_path, failure):
     assert collect(make_run(tmp_path / "run", failure=failure))["unresolved_reserved_rmb"] == pytest.approx(.0102)
+
+
+@pytest.mark.parametrize("failure", ["RequestDeadlineExceeded", "RequestWorkerError"])
+def test_request_process_failures_block_strict_history_and_retain_development_reserves(tmp_path, failure):
+    original = make_run(tmp_path / "original", failure=failure)
+    original_files = {path: path.read_bytes() for path in original.parent.iterdir() if path.is_file()}
+
+    with pytest.raises(ValueError, match="unresolved usage; matching reconciliation is required"):
+        _previous_costs([original], [], HASHES, PRICING)
+
+    history = collect(original)
+    assert history["known_cost_rmb"] == pytest.approx(.00014)
+    assert history["unresolved_reserved_rmb"] == pytest.approx(.0102)
+    assert history["budget_allocation_rmb"] == pytest.approx(.01034)
+    assert history["accounting_complete"] is False
+    assert history["actual_total_cost_known"] is False
+    pending, = history["unresolved_calls"]
+    assert pending["actual_cost_rmb"] is pending["input_tokens"] is pending["output_tokens"] is None
+
+    # A development continuation adds its own known cost without clearing,
+    # settling or rewriting the earlier request's unresolved reservation.
+    continued = make_run(tmp_path / "continued", failure=None)
+    campaign = make_campaign(tmp_path / "continued_campaign.json", runs=[continued], previous=[original],
+                             status="development_completed_unresolved_accounting",
+                             pinned=history["ledger_records"])
+    combined = collect(campaign)
+    assert combined["known_cost_rmb"] == pytest.approx(.00028)
+    assert combined["unresolved_reserved_rmb"] == pytest.approx(.0102)
+    assert combined["budget_allocation_rmb"] == pytest.approx(.01048)
+    assert combined["unresolved_calls"] == history["unresolved_calls"]
+    assert combined["accounting_complete"] is False
+    assert combined["actual_total_cost_known"] is False
+    assert {path: path.read_bytes() for path in original_files} == original_files
 
 
 def test_http_failure_requires_error_status(tmp_path):

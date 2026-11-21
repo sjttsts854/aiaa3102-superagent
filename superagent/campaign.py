@@ -5,6 +5,7 @@ import json
 import math
 from decimal import Decimal
 from pathlib import Path
+from . import __version__
 
 from .data import load_task
 from .reconciliation import _read_ledger, verify_reconciliation
@@ -194,6 +195,8 @@ def campaign(task_path: Path, configs: list[Path], output: Path, budget_rmb: flo
     if not configs:
         raise ValueError("At least one LLM configuration is required")
     settings = [LLMConfig.load(path) for path in configs]
+    if planner_mode != "llm-code" and any(config.request_policy is not None for config in settings):
+        raise ValueError("The three-tier request policy requires --planner llm-code for experiments.")
     pricing = {(s.pricing_basis, s.pricing_as_of) for s in settings}
     if len(pricing) != 1:
         raise ValueError("Campaign configurations must use the same pricing basis and date")
@@ -229,6 +232,7 @@ def campaign(task_path: Path, configs: list[Path], output: Path, budget_rmb: flo
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     result = {
+        "project_version": __version__,
         "status": "running", "created_at": now(), "task_path": str(task_path.resolve()),
         "data_sha256": data_hashes, "pricing_basis": settings[0].pricing_basis,
         "pricing_as_of": settings[0].pricing_as_of, "budget_rmb": budget_rmb,

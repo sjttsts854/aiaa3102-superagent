@@ -7,6 +7,7 @@ import pytest
 from sklearn.pipeline import Pipeline
 
 from superagent.data import TaskSpec
+from superagent import __version__
 from superagent.evaluation import evaluate_model
 from superagent.models import build_pipeline
 from superagent.utils import file_hash
@@ -78,6 +79,10 @@ def test_final_evaluation_scores_existing_model_without_fit(tmp_path, monkeypatc
     output = tmp_path / "evaluation"
     result = evaluate_model(model_path, test, output, labels)
     assert result["status"] == "completed"
+    assert result["evaluation_project_version"] == __version__
+    # Old artifacts are explicitly unknown; never relabel them as this release.
+    assert result["training_project_version"] is None
+    assert result["training_run_id"] is None
     assert result["metric"] == "accuracy" and result["test_accuracy"] == 1.0
     assert result["confusion_matrix"] == [[2, 0], [0, 2]]
     assert result["class_support"] == [{"label": 0, "rows": 2}, {"label": 1, "rows": 2}]

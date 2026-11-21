@@ -162,6 +162,15 @@ def test_real_runner_repairs_generated_code_selects_refits_and_reloads(synthetic
 
     bundle = joblib.load(output / 'model.joblib')
     assert isinstance(bundle['pipeline'], GeneratedModel)
+    manifest = json.loads((output / 'manifest.json').read_text(encoding='utf-8'))
+    summary = json.loads((output / 'summary.json').read_text(encoding='utf-8'))
+    from superagent import __version__
+    from superagent.utils import file_hash
+    assert bundle['project_version'] == manifest['project_version'] == summary['project_version'] == __version__
+    assert bundle['run_id'] == manifest['run_id'] == summary['run_id']
+    assert summary['llm_config_sha256'] == manifest['llm_config_sha256'] == file_hash(output / 'llm_config.snapshot.json')
+    assert summary['model_sha256'] == file_hash(output / 'model.joblib')
+    assert all(row['project_version'] == __version__ for row in _jsonl(output / 'llm_calls.jsonl'))
     reloaded = export_predictions(bundle, tmp_path / 'prediction.csv', tmp_path / 'reloaded.csv')
     original = pd.read_csv(output / 'predictions.csv')
     pd.testing.assert_frame_equal(original, pd.read_csv(reloaded['predictions']))

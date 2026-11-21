@@ -13,10 +13,11 @@ import httpx
 from .credentials import read_api_key
 from .network import post_completion, safe_error_details
 from .response_parser import parse_json_content
+from .request_policy import ThreeTierPolicy, TierDecision
 
 from .usage import (
     AccountingError, AgentPlannerError, BudgetExhausted, BudgetLedger,
-    InvalidPlanError, LLMConfig,
+    InvalidPlanError, LLMConfig, TruncatedResponseError,
 )
 
 
@@ -161,6 +162,8 @@ class LLMPlanner:
     def propose(self, profile: dict, history: list[dict], catalog: dict) -> dict:
         context = {"training_profile": profile, "validation_history": history,
                    "algorithm_catalog": catalog}
+        if self.config.request_policy is not None:
+            raise AgentPlannerError("The three-tier request policy requires --planner llm-code for experiments.")
         if self._last_plan_error is not None:
             context["previous_plan_error"] = self._last_plan_error
         messages = [{"role": "system", "content": _SYSTEM},
@@ -179,24 +182,48 @@ class LLMPlanner:
 
     def check_connection(self) -> dict:
         """One metered request, no datasets and no training; never auto-retry."""
-        response = self._request_json([
+        messages = [
             {"role": "system", "content": "You are checking an API connection. Return exactly one JSON object, with no markdown or explanation."},
             {"role": "user", "content": 'Return exactly {"ok":true}.'},
-        ])
+        ]
+        if self.config.request_policy == "three_tier":
+            # A probe has no candidate history and cannot consume rescue tiers.
+            response = self._request_tier(messages, ThreeTierPolicy().choose([]))
+        else:
+            response = self._request_json(messages)
         if response != {"ok": True} or type(response.get("ok")) is not bool:
             raise InvalidPlanError("API returned JSON but did not satisfy the connection-check schema; usage was charged.")
         return response
 
-    def _request_json(self, messages: list[dict[str, str]]) -> Any:
-        self.ledger.begin(messages)
-        payload = {"model": self.config.model, "messages": messages,
-                   "max_tokens": self.config.max_output_tokens, "stream": False}
-        if self.config.response_format == "json_object":
+    def _request_tier(self, messages: list[dict[str, str]], tier: TierDecision, on_reserved=None) -> Any:
+        """Send actual tier limits while keeping the run's accounting ceiling."""
+        active = replace(self.config, max_output_tokens=tier.max_output_tokens,
+                         request_policy=None, enable_thinking=tier.thinking,
+                         timeout_seconds=tier.deadline_seconds,
+                         request_deadline_seconds=tier.deadline_seconds)
+        parameters = {"tier": tier.name, "reason": tier.reason,
+                      "max_tokens": tier.max_output_tokens,
+                      "enable_thinking": tier.thinking,
+                      "deadline_seconds": tier.deadline_seconds}
+        return self._request_json(messages, request_config=active,
+                                  request_parameters=parameters, on_reserved=on_reserved)
+
+    def _request_json(self, messages: list[dict[str, str]], *, request_config=None,
+                      request_parameters=None, on_reserved=None) -> Any:
+        active = request_config or self.config
+        self.ledger.begin(messages, request_parameters=request_parameters)
+        if on_reserved is not None:
+            on_reserved()
+        payload = {"model": active.model, "messages": messages,
+                   "max_tokens": active.max_output_tokens, "stream": False}
+        if active.response_format == "json_object":
             payload["response_format"] = {"type": "json_object"}
-        if self.config.reasoning_effort is not None:
-            payload["reasoning_effort"] = self.config.reasoning_effort
+        if active.reasoning_effort is not None:
+            payload["reasoning_effort"] = active.reasoning_effort
+        if active.enable_thinking is not None:
+            payload["chat_template_kwargs"] = {"enable_thinking": active.enable_thinking}
         try:
-            response = post_completion(self.config, payload, self._api_key)
+            response = post_completion(active, payload, self._api_key)
             response.raise_for_status()
             body = response.json()
         except (httpx.HTTPError, ValueError) as exc:
@@ -214,6 +241,8 @@ class LLMPlanner:
             choice = body["choices"][0]
             if not isinstance(choice, dict):
                 raise InvalidPlanError("LLM returned a malformed completion; its usage was charged.")
+            if choice.get("finish_reason") == "length":
+                raise TruncatedResponseError("LLM response was truncated or stopped abnormally; its usage was charged.")
             if choice.get("finish_reason") is not None and choice.get("finish_reason") != "stop":
                 raise InvalidPlanError("LLM response was truncated or stopped abnormally; its usage was charged.")
             content = choice["message"]["content"]

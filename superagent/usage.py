@@ -11,6 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from . import __version__
 
 
 class AgentPlannerError(RuntimeError):
@@ -27,6 +28,10 @@ class AccountingError(AgentPlannerError):
 
 class InvalidPlanError(AgentPlannerError):
     """The paid response did not contain an executable, valid plan."""
+
+
+class TruncatedResponseError(InvalidPlanError):
+    """The provider explicitly reported finish_reason=length."""
 
 
 @dataclass(frozen=True)
@@ -53,6 +58,9 @@ class LLMConfig:
     max_output_tokens: int = 1000
     timeout_seconds: float = 60.0
     reasoning_effort: str | None = None
+    enable_thinking: bool | None = None
+    request_deadline_seconds: float | None = None
+    request_policy: str | None = None
 
     @classmethod
     def load(cls, path: Path | str) -> "LLMConfig":
@@ -67,6 +75,23 @@ class LLMConfig:
         return config
 
     def validate(self) -> None:
+        if self.enable_thinking is not None and type(self.enable_thinking) is not bool:
+            raise ValueError("enable_thinking must be boolean or null.")
+        if self.enable_thinking is not None and self.reasoning_effort is not None:
+            raise ValueError("Use one thinking control, not both provider parameter styles.")
+        if self.request_deadline_seconds is not None and (
+            isinstance(self.request_deadline_seconds, bool)
+            or not isinstance(self.request_deadline_seconds, (int, float))
+            or not math.isfinite(self.request_deadline_seconds)
+            or self.request_deadline_seconds <= 0
+        ):
+            raise ValueError("request_deadline_seconds must be finite and positive.")
+        if self.request_policy not in (None, "three_tier"):
+            raise ValueError("Unsupported request policy.")
+        if self.request_policy == "three_tier" and (
+            self.max_output_tokens != 16384 or self.reasoning_effort is not None
+        ):
+            raise ValueError("three_tier requires a 16384-token reservation ceiling and no reasoning_effort.")
         if self.verified is not True:
             raise ValueError(
                 "LLM config is not verified. Confirm the model release, selected "
@@ -177,6 +202,7 @@ class BudgetLedger:
 
     def _pricing_labels(self) -> dict[str, Any]:
         return {
+            "project_version": __version__,
             "pricing_basis": self.config.pricing_basis,
             "pricing_as_of": self.config.pricing_as_of,
             "price_source": self.config.price_source,
@@ -197,9 +223,13 @@ class BudgetLedger:
             handle.write(json.dumps(record, ensure_ascii=False, allow_nan=False) + "\n")
             handle.flush()
 
-    def begin(self, messages: list[dict[str, str]]) -> str:
+    def begin(self, messages: list[dict[str, str]], request_parameters: dict | None = None) -> str:
         if self.blocked or self.pending is not None:
             raise AccountingError("Further LLM requests are blocked by unresolved or invalid accounting.")
+        if request_parameters is not None:
+            limit = request_parameters.get("max_tokens")
+            if type(limit) is not int or not 0 < limit <= self.config.max_output_tokens:
+                raise AgentPlannerError("Actual request limit must fit the configured reservation ceiling.")
         # UTF-8 bytes plus generous message framing is conservative for normal
         # byte-based tokenizers. Provider-added/hidden tokens cannot be predicted.
         estimated_upper = sum(len(m["content"].encode("utf-8")) + 256 for m in messages) + 256
@@ -211,8 +241,12 @@ class BudgetLedger:
         self.calls += 1
         call_id = f"llm-{self.calls:04d}"
         self.pending = {"call_id": call_id, "reserved_rmb": float(reserve)}
+        if request_parameters is not None:
+            self.pending["request_parameters"] = dict(request_parameters)
         self._append({
             "event": "request_started", "call_id": call_id,
+            **({"request_parameters": dict(request_parameters), "reservation_policy": "configured_ceiling"}
+               if request_parameters is not None else {}),
             "model_requested": self.config.model, "messages": messages,
             "max_output_tokens": self.config.max_output_tokens,
             "max_input_tokens": self.config.max_input_tokens,
@@ -267,6 +301,7 @@ class BudgetLedger:
         violated = (
             inputs > self.config.max_input_tokens
             or outputs > self.config.max_output_tokens
+            or outputs > call.get("request_parameters", {}).get("max_tokens", self.config.max_output_tokens)
             or self.spent > Decimal(str(self.config.budget_rmb))
         )
         self._append({

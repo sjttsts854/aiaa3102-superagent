@@ -60,6 +60,18 @@ def _cost(config: LLMConfig, inputs: int, outputs: int) -> Decimal:
             + Decimal(outputs) * Decimal(str(config.output_rmb_per_million))) / Decimal(1_000_000)
 
 
+def _request_limit(start: dict, config: LLMConfig) -> int:
+    parameters = start.get("request_parameters")
+    if parameters is None:
+        return config.max_output_tokens
+    if not isinstance(parameters, dict):
+        raise ValueError("Invalid request parameters in ledger")
+    limit = parameters.get("max_tokens")
+    if type(limit) is not int or not 0 < limit <= config.max_output_tokens:
+        raise ValueError("Invalid actual request output limit in ledger")
+    return limit
+
+
 def _read_ledger(path: Path, config: LLMConfig) -> tuple[dict, Decimal, bool]:
     """Recompute existing charges and validate identities instead of trusting totals."""
     calls: dict[str, dict] = {}
@@ -78,6 +90,7 @@ def _read_ledger(path: Path, config: LLMConfig) -> tuple[dict, Decimal, bool]:
         call_id = _text(row.get("call_id"), "call_id")
         _time(row.get("time_utc"))
         if event == "request_started":
+            _request_limit(row, config)
             if call_id in calls:
                 raise ValueError("Duplicate request_started in ledger")
             pricing = row.get("pricing", {})
@@ -117,7 +130,7 @@ def _read_ledger(path: Path, config: LLMConfig) -> tuple[dict, Decimal, bool]:
             spent += cost
             if any(_amount(row.get(key)) != cost for key in ("actual_cost_rmb", "calculated_cost_rmb")):
                 raise ValueError("Completed ledger cost disagrees with token arithmetic")
-            violated = inputs > config.max_input_tokens or outputs > config.max_output_tokens or spent > Decimal(str(config.budget_rmb))
+            violated = inputs > config.max_input_tokens or outputs > _request_limit(call["start"], config) or spent > Decimal(str(config.budget_rmb))
             if type(row.get("reservation_limit_violated")) is not bool or row["reservation_limit_violated"] != violated:
                 raise ValueError("Ledger reservation violation flag is inconsistent")
             limits_violated |= violated
@@ -201,7 +214,7 @@ def _build_reconciliation(run_dir: str | Path, evidence_path: str | Path) -> tup
                 raise ValueError("Evidence model is not covered by the verified pricing configuration")
             inputs, outputs = _tokens(record["input_tokens"], record["output_tokens"])
             cost = _cost(config, inputs, outputs)
-            violation = inputs > config.max_input_tokens or outputs > config.max_output_tokens
+            violation = inputs > config.max_input_tokens or outputs > _request_limit(start, config)
         else:
             _text(record["confirmation"], "confirmation")
             cost = Decimal("0")

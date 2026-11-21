@@ -8,6 +8,8 @@ import pandas as pd
 import pytest
 
 from superagent.demo import make_demo
+from superagent import __version__
+from superagent.utils import file_hash
 from superagent.runner import export_predictions, run, run_worker
 
 
@@ -28,6 +30,12 @@ def test_complete_run_selects_before_prediction_and_reloads(tmp_path, kind):
     events = [json.loads(line)["event"] for line in (output / "events.jsonl").read_text(encoding="utf-8").splitlines()]
     assert events.index("model_selected") < events.index("prediction_started")
     model = joblib.load(output / "model.joblib")
+    manifest = json.loads((output / "manifest.json").read_text(encoding="utf-8"))
+    assert summary["project_version"] == manifest["project_version"] == model["project_version"] == __version__
+    assert len(summary["run_id"]) == 32
+    assert summary["run_id"] == manifest["run_id"] == model["run_id"]
+    assert summary["source_sha256"] == manifest["source_sha256"] == model["source_sha256"]
+    assert summary["model_sha256"] == file_hash(output / "model.joblib")
     reloaded_path = tmp_path / "reload.csv"
     export_predictions(model, tmp_path / "data" / f"{kind}_predict.csv", reloaded_path)
     pd.testing.assert_frame_equal(pd.read_csv(output / "predictions.csv"), pd.read_csv(reloaded_path))
